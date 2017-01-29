@@ -1,0 +1,85 @@
+#include <ros/ros.h>
+#include <boost/bind.hpp>
+#include <boost/ref.hpp>
+
+#include <actionlib/client/simple_action_client.h>
+#include <pr2_controllers_msgs/PointHeadAction.h>
+#include <pr2_controllers_msgs/PointHeadGoal.h>
+#include <geometry_msgs/PointStamped.h>
+
+#include <cpp_robot/head_interface.h>
+
+HeadInterface::HeadInterface():
+    _ready(false),
+    _hi(0)
+{
+    _hi = new PointHeadClient("/pan_tilt_trajectory_controller/point_head_action", true);
+    while(!_hi->waitForServer(ros::Duration(5.0)) && ros::ok()){
+        ROS_INFO("Waiting for point head server.");
+    }
+    _ready = true;
+}
+
+HeadInterface::HIGoal HeadInterface::xyz_to_goal(std::string ref_frame, double x, double y, double z, double vel){
+    HIGoal goal;
+
+    geometry_msgs::PointStamped point;
+    point.header.frame_id = ref_frame;
+    point.point.x = x;
+    point.point.y = y;
+    point.point.z = z;
+
+    goal.target = point;
+    goal.pointing_frame = "kinect2_depth_frame";
+    goal.pointing_axis.x = 1;
+    goal.pointing_axis.y = 0;
+    goal.pointing_axis.z = 0;
+
+    goal.min_duration = ros::Duration(0.5);
+    goal.max_velocity = vel;
+
+    return goal;
+}
+
+bool HeadInterface::point_head_block(double x, double y, double z, double vel){
+    if(!_ready){
+        ROS_ERROR("HeadInterface is not ready!");
+        return false;
+    }
+    HIGoal goal = xyz_to_goal("base_link", x, y, z, vel);
+    _hi->sendGoalAndWait(goal);
+    return _hi->getState() == GoalState::SUCCEEDED;
+}
+
+void HeadInterface::point_head_no_block(double x, double y, double z, double vel){
+    if(!_ready)
+        ROS_ERROR("HeadInterface is not ready!");
+    else{
+        HIGoal goal = xyz_to_goal("base_link", x, y, z, vel);
+        _hi->sendGoal(goal);
+    }
+}
+
+void HeadInterface::generic_done_callback(const CallbackBool f, const GoalState &state){
+    if(state == GoalState::SUCCEEDED)
+        f(true);
+    else
+        f(false);
+}
+
+void HeadInterface::point_head_no_block(const CallbackBool callback, double x, double y, double z, double vel){
+    if(!_ready)
+        ROS_ERROR("HeadInterface is not ready!");
+    else{
+        HIGoal goal = xyz_to_goal("base_link", x, y, z, vel);
+        _hi->sendGoal(goal, boost::bind(&HeadInterface::generic_done_callback, boost::ref(this), callback, _1));
+    }
+}
+
+void HeadInterface::stop(){
+    _hi->cancelAllGoals();
+}
+
+HeadInterface::~HeadInterface(){
+    delete _hi;
+}
