@@ -58,12 +58,12 @@ int main(int argc, char **argv){
 	HeadInterface hi;
 	ros::Duration(1).sleep();
 
-	DriverInterface::DIGoal *g = oh.get_object_digoal("can");
+	// DriverInterface::DIGoal *g = oh.get_object_digoal("can");
 	geometry_msgs::Pose *p = oh.get_object_pose("can");
-	if(g){
+	if(p){
 		ROS_INFO("Found can!");
 		ai.close_gripper_no_block();
-		di.drive_block(*g);
+		di.drive_block(*p, 0.55);
 		ROS_INFO("Reaching can...");
 		ai.push_button(*p);
 		ROS_INFO("Done!");

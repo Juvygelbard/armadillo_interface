@@ -9,6 +9,7 @@
 #include <cpp_robot/driver_interface.h>
 
 // TODO: build callback mechanism, fix point->move calc
+// TODO: delete digoal methods, including _tfl.
 
 ObjectHandler::ObjectHandler(double stop_dist): 
         _stop_dist(stop_dist),

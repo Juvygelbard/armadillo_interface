@@ -8,6 +8,8 @@ find_package(catkin REQUIRED COMPONENTS
   move_base_msgs
   actionlib
   tf
+  costmap_2d
+  base_local_planner
 
   moveit_core
   moveit_ros_planning
