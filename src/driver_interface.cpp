@@ -74,7 +74,7 @@ geometry_msgs::Pose *DriverInterface::get_best_pose_in_rad(const geometry_msgs::
     // return first accessible point, or null if no such point
     for(std::vector<geometry_msgs::Pose>::iterator it=poses.begin(); it!=poses.end(); ++it){
         if(!pose_blocked(*it))
-            return &(*it);
+            return new geometry_msgs::Pose(*it);
     }
     return 0;
 }
@@ -88,17 +88,7 @@ DriverInterface::DIGoal DriverInterface::xw_to_digoal(double x, double w){
     return goal;
 }
 
-bool DriverInterface::drive_block(const DIGoal &goal){
-    if(!_ready){
-        ROS_ERROR("DriverInterface is not ready!");
-        return false;
-    }
-	_mb->sendGoalAndWait(goal);
-
-	return _mb->getState() == GoalState::SUCCEEDED;
-}
-
-bool DriverInterface::drive_block(geometry_msgs::Pose &object, double radius){
+DriverInterface::DIGoal *DriverInterface::build_digoal(geometry_msgs::Pose &object, double radius){
     // get robot position
     tf::StampedTransform robot_transform;
     _tfl->lookupTransform("map", "base_link", ros::Time(0), robot_transform);
@@ -114,9 +104,9 @@ bool DriverInterface::drive_block(geometry_msgs::Pose &object, double radius){
     else
         target = &object;
 
-    // if no reachable goal, return false
+    // if no reachable goal, return null
     if(!target)
-        return false;
+        return 0;
 
     // build goal
     DIGoal *goal = new DIGoal();
@@ -133,25 +123,37 @@ bool DriverInterface::drive_block(geometry_msgs::Pose &object, double radius){
     goal->target_pose.pose.orientation.z = target->orientation.z;
     goal->target_pose.pose.orientation.w = target->orientation.w;
 
-    // send goal to move_base server
-    return drive_block(*goal);
+    // delete target only if it was created by get_best_pose_in_rad(...)
+    if(target != &object)
+        delete target;
+    
+    return goal;
 }
 
-bool DriverInterface::drive_block(double x, double w){
-    DIGoal goal = xw_to_digoal(x, w);
-    return drive_block(goal);
-}
-
-void DriverInterface::drive_no_block(const DIGoal &goal){
+bool DriverInterface::drive_block(geometry_msgs::Pose &object, double radius){
     if(!_ready)
         ROS_ERROR("DriverInterface is not ready!");
-    else
-	    _mb->sendGoal(goal);
+
+    DIGoal *goal = build_digoal(object, radius);
+
+    if(!goal)
+        return false;
+
+    _mb->sendGoalAndWait(*goal);
+
+    delete goal;
+	return _mb->getState() == GoalState::SUCCEEDED;
 }
 
-void DriverInterface::drive_no_block(double x, double w){
-    DIGoal goal = xw_to_digoal(x, w);
-    drive_no_block(goal);
+
+// NOTE: THERE IS A MEMORY LEAK HERE!
+void DriverInterface::drive_no_block(geometry_msgs::Pose &object, double radius){
+    if(!_ready)
+        ROS_ERROR("DriverInterface is not ready!");
+    else{
+        DIGoal *goal = build_digoal(object, radius);
+        _mb->sendGoal(*goal);
+    }
 }
 
 void DriverInterface::generic_done_callback(const CallbackBool f, const GoalState &state){
@@ -161,17 +163,29 @@ void DriverInterface::generic_done_callback(const CallbackBool f, const GoalStat
         f(false);
 }
 
-void DriverInterface::drive_no_block(const CallbackBool callback, const DIGoal &goal){
+// NOTE: THERE IS A MEMORY LEAK HERE!
+void DriverInterface::drive_no_block(const CallbackBool callback, geometry_msgs::Pose &object, double radius){
     if(!_ready)
         ROS_ERROR("DriverInterface is not ready!");
     else{
-        _mb->sendGoal(goal, boost::bind(&DriverInterface::generic_done_callback, boost::ref(this), callback, _1));
+        DIGoal *goal = build_digoal(object, radius);
+        _mb->sendGoal(*goal, boost::bind(&DriverInterface::generic_done_callback, boost::ref(this), callback, _1));
     }
 }
 
+bool DriverInterface::drive_block(double x, double w){
+    // DIGoal goal = xw_to_digoal(x, w);
+    // return drive_block(goal);
+}
+
+void DriverInterface::drive_no_block(double x, double w){
+    // DIGoal goal = xw_to_digoal(x, w);
+    // drive_no_block(goal);
+}
+
 void DriverInterface::drive_no_block(const CallbackBool callback, double x, double w){
-    DIGoal goal = xw_to_digoal(x, w);
-    drive_no_block(callback, goal);
+    // DIGoal goal = xw_to_digoal(x, w);
+    // drive_no_block(callback, goal);
 }
 
 

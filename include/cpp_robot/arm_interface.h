@@ -50,6 +50,7 @@ class ArmInterface{
 
         // complex arm actions interface
         void push_button(const geometry_msgs::Pose &button); // initil - upgrade to a constarints aware version.
+        void pick(const geometry_msgs::Pose &object);
         ~ArmInterface();
 };
 

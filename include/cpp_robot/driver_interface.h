@@ -27,24 +27,34 @@ class DriverInterface{
         costmap_2d::Costmap2DROS *_cm_interface;
         base_local_planner::CostmapModel *_cm_model;
 
+        DIGoal xw_to_digoal(double x, double w);
+        // used to wrap the user's callback function'
         void generic_done_callback(const CallbackBool f, const GoalState &state);
         // returns true if point is blocked by some object, i.e. not reachable
         bool pose_blocked(const geometry_msgs::Pose &point);
         // returns true if point1 is closer to base then point2
         static bool point_dist_comperator(const geometry_msgs::Pose &base, const geometry_msgs::Pose &point1, const geometry_msgs::Pose &point2);
         // returns closest available point in radius
-        geometry_msgs::Pose *get_best_pose_in_rad(const geometry_msgs::Pose &robot, const geometry_msgs::Pose &object, double radius);        DIGoal xw_to_digoal(double x, double w);
+        geometry_msgs::Pose *get_best_pose_in_rad(const geometry_msgs::Pose &robot, const geometry_msgs::Pose &object, double radius);
+        // build DIGoal and handle radius
+        DIGoal *build_digoal(geometry_msgs::Pose &object, double radius);
 
     public:
         DriverInterface();
-        bool drive_block(const DIGoal &goal);
+
+        // drive relative to map
         bool drive_block(geometry_msgs::Pose &pose, double radius=0);
+        void drive_no_block(geometry_msgs::Pose &object, double radius=0);
+        void drive_no_block(const CallbackBool callback, geometry_msgs::Pose &object, double radius=0);
+
+        // drive relative to robot
+        // TODO: implemen using odometry
         bool drive_block(double x, double w);
-        void drive_no_block(const DIGoal &goal);
         void drive_no_block(double x, double w);
-        void drive_no_block(const CallbackBool callback, const DIGoal &goal);
         void drive_no_block(const CallbackBool callback, double x, double w);
+
         void stop();
+
         ~DriverInterface();
 };
 

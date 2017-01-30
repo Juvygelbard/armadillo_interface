@@ -58,7 +58,6 @@ int main(int argc, char **argv){
 	HeadInterface hi;
 	ros::Duration(1).sleep();
 
-	// DriverInterface::DIGoal *g = oh.get_object_digoal("can");
 	geometry_msgs::Pose *p = oh.get_object_pose("can");
 	if(p){
 		ROS_INFO("Found can!");

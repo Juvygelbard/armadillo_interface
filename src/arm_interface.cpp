@@ -120,6 +120,9 @@ void ArmInterface::push_button(const geometry_msgs::Pose &button){
     _as->stop();
 }
 
+void pick(const geometry_msgs::Pose &object){
+    // TODO: implement!
+}
 
 bool ArmInterface::set_gripper_block(double position, double force){
     control_msgs::GripperCommandGoal goal;
