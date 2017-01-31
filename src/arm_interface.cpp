@@ -21,10 +21,12 @@ ArmInterface::ArmInterface():
     _psi(new moveit::planning_interface::PlanningSceneInterface()),
     _as(new ros::AsyncSpinner(1)),
     _tf(new tf::TransformListener),
-    _gc(new GripperClient("/gripper_controller/gripper_cmd", true))
+    _gc(new GripperClient("/gripper_controller/gripper_cmd", true)),
+    _puc(new PickupClient("pickup", true))
 {
-    while (!_gc->waitForServer(ros::Duration(5.0))){
-        ROS_INFO("waiting for gripper client....");
+    while (!(_gc->waitForServer() && _puc->waitForServer())){
+        ROS_INFO("waiting for action-servers...");
+        ros::Duration(5.0).sleep();
     }
 }
 
@@ -124,6 +126,7 @@ void ArmInterface::push_button(const geometry_msgs::Pose &button){
     _as->stop();
 }
 
+// TODO: change reference frame for grasp. make grasp closer to robot.
 moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Pose &pose, const std::string &object){
     moveit_msgs::PickupGoal *goal = new moveit_msgs::PickupGoal;
 
@@ -197,15 +200,33 @@ moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Po
     return goal;
 }
 
-void ArmInterface::pickup_block(const geometry_msgs::Pose &pose,  const std::string &object){
+void ArmInterface::generic_done_callback(const CallbackBool f, const GoalState &state){
+    if(state == GoalState::SUCCEEDED)
+        f(true);
+    else
+        f(false);
+}
+
+bool ArmInterface::pickup_block(const geometry_msgs::Pose &pose,  const std::string &object){
     moveit_msgs::PickupGoal *goal = build_pickup_goal(pose, object);
-    PickupClient pc("pickup", true);
-    ROS_INFO("waiting for pickup server.");
-    pc.waitForServer();
-    ROS_INFO("picking up...");
-    pc.sendGoalAndWait(*goal);
-    ROS_INFO("done!");
+    _puc->sendGoalAndWait(*goal);
     delete goal;
+
+    return _puc->getState() ==  GoalState::SUCCEEDED;
+}
+
+// TODO: CHECK IF POSSIBLE TO DELETE GOAL
+void ArmInterface::pickup_no_block(const geometry_msgs::Pose &pose, const std::string &object){
+    moveit_msgs::PickupGoal *goal = build_pickup_goal(pose, object);
+    _puc->sendGoal(*goal);
+    // delete goal;
+}
+
+// TODO: CHECK IF POSSIBLE TO DELETE GOAL
+void ArmInterface::pickup_no_block(CallbackBool callback, const geometry_msgs::Pose &pose, const std::string &object){
+    moveit_msgs::PickupGoal *goal = build_pickup_goal(pose, object);
+    _puc->sendGoal(*goal, boost::bind(&ArmInterface::generic_done_callback, boost::ref(this), callback, _1));
+    // delete goal;
 }
 
 bool ArmInterface::set_gripper_block(double position, double force){
@@ -220,13 +241,6 @@ void ArmInterface::set_gripper_no_block(double position, double force){
     goal.command.position = position;
     goal.command.max_effort = force;
     _gc->sendGoal(goal);
-}
-
-void ArmInterface::generic_done_callback(const CallbackBool f, const GoalState &state){
-    if(state == GoalState::SUCCEEDED)
-        f(true);
-    else
-        f(false);
 }
 
 void ArmInterface::set_gripper_no_block(CallbackBool callback, double position, double force){
@@ -266,4 +280,5 @@ ArmInterface::~ArmInterface(){
     delete _as;
     delete _tf;
     delete _gc;
+    delete _puc;
 }

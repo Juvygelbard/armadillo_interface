@@ -61,10 +61,20 @@ int main(int argc, char **argv){
 	geometry_msgs::Pose *p = oh.get_object_pose("can");
 	if(p){
 		ROS_INFO("Found can!");
-		ai.close_gripper_no_block();
 		di.drive_block(*p, 0.55);
 		ROS_INFO("Reaching can...");
 		ai.pickup_block(*p, "can");
+		ROS_INFO("Going back...");
+		geometry_msgs::Pose back_p;
+		back_p.position.x = 0.0;
+		back_p.position.y = 0.0;
+		back_p.position.z = 0.0;
+		back_p.orientation.x = 0.0;
+		back_p.orientation.y = 0.0;
+		back_p.orientation.z = 0.0;
+		back_p.orientation.w = 1.0;
+		di.drive_block(back_p);
+		ai.open_gripper_block();
 		ROS_INFO("Done!");
 	}
 	else{

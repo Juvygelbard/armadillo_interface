@@ -173,17 +173,17 @@ void DriverInterface::drive_no_block(const CallbackBool callback, geometry_msgs:
     }
 }
 
-bool DriverInterface::drive_block(double x, double w){
+bool DriverInterface::drive_block(double x, double w, double vel){
     // DIGoal goal = xw_to_digoal(x, w);
     // return drive_block(goal);
 }
 
-void DriverInterface::drive_no_block(double x, double w){
+void DriverInterface::drive_no_block(double x, double w, double vel){
     // DIGoal goal = xw_to_digoal(x, w);
     // drive_no_block(goal);
 }
 
-void DriverInterface::drive_no_block(const CallbackBool callback, double x, double w){
+void DriverInterface::drive_no_block(const CallbackBool callback, double x, double w, double vel){
     // DIGoal goal = xw_to_digoal(x, w);
     // drive_no_block(callback, goal);
 }

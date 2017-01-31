@@ -49,9 +49,9 @@ class DriverInterface{
 
         // drive relative to robot
         // TODO: implemen using odometry
-        bool drive_block(double x, double w);
-        void drive_no_block(double x, double w);
-        void drive_no_block(const CallbackBool callback, double x, double w);
+        bool drive_block(double x, double w, double vel=0.2);
+        void drive_no_block(double x, double w, double vel=0.2);
+        void drive_no_block(const CallbackBool callback, double x, double w, double vel=0.2);
 
         void stop();
 

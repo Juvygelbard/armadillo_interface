@@ -24,6 +24,7 @@ class ArmInterface{
         ros::AsyncSpinner *_as;
         tf::TransformListener *_tf;
         GripperClient *_gc;
+        PickupClient *_puc;
 
         geometry_msgs::PoseStamped xyz_rpy_to_ps(double x, double y, double z, double r_ori, double p_ori, double y_ori);
         void generic_done_callback(const CallbackBool f, const GoalState &state);
@@ -54,7 +55,11 @@ class ArmInterface{
 
         // complex arm actions interface
         void push_button(const geometry_msgs::Pose &button); // initil - upgrade to a constarints aware version.
-        void pickup_block(const geometry_msgs::Pose &pose, const std::string &object);
+
+        bool pickup_block(const geometry_msgs::Pose &pose, const std::string &object);
+        void pickup_no_block(const geometry_msgs::Pose &pose, const std::string &object);
+        void pickup_no_block(CallbackBool callback, const geometry_msgs::Pose &pose, const std::string &object);
+        
         ~ArmInterface();
 };
 
