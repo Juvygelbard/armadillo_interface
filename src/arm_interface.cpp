@@ -9,6 +9,10 @@
 #include <moveit_msgs/CollisionObject.h>
 #include <shape_msgs/Plane.h>
 #include <control_msgs/GripperCommandGoal.h>
+#include <moveit_msgs/PickupGoal.h>
+#include <moveit_msgs/PickupAction.h>
+#include <moveit_msgs/Grasp.h>
+#include <trajectory_msgs/JointTrajectory.h>
 
 #include <cpp_robot/arm_interface.h>
 
@@ -120,8 +124,88 @@ void ArmInterface::push_button(const geometry_msgs::Pose &button){
     _as->stop();
 }
 
-void pick(const geometry_msgs::Pose &object){
-    // TODO: implement!
+moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Pose &pose, const std::string &object){
+    moveit_msgs::PickupGoal *goal = new moveit_msgs::PickupGoal;
+
+    goal->target_name = object;
+
+    goal->group_name = "arm";
+    goal->end_effector = "eef";
+    goal->allow_gripper_support_collision = false;
+    goal->minimize_object_distance = true;
+
+    ///
+    goal->allowed_planning_time = 5.0;
+    goal->planning_options.replan_delay = 2.0;
+    goal->planning_options.planning_scene_diff.is_diff = true;
+    goal->planning_options.planning_scene_diff.robot_state.is_diff = true;
+    goal->planning_options.replan=true;
+    goal->planning_options.replan_attempts=5;
+    goal->planner_id = "RRTConnectkConfigDefault";
+    ///
+
+    moveit_msgs::Grasp g;
+    // position of gripper before grasp
+    g.pre_grasp_posture.joint_names.push_back("left_finger_joint");
+    g.pre_grasp_posture.joint_names.push_back("right_finger_joint");
+    g.pre_grasp_posture.points.resize(1);
+    g.pre_grasp_posture.points[0].positions.resize(2);
+    g.pre_grasp_posture.points[0].positions[0] = 0.14;
+    
+    // position of gripper during grasp (+ grasp force)
+    g.grasp_posture.joint_names.push_back("left_finger_joint");
+    g.grasp_posture.joint_names.push_back("right_finger_joint");
+    g.grasp_posture.points.resize(1);
+    g.grasp_posture.points[0].positions.resize(2);
+    g.grasp_posture.points[0].positions[0] = 0.01;
+    g.grasp_posture.points[0].effort.resize(2);
+    g.grasp_posture.points[0].effort[0] = 0.4;
+
+    // position of end-effector during grasp
+    g.grasp_pose.header.frame_id = "map";
+    g.grasp_pose.pose.position.x = pose.position.x;
+    g.grasp_pose.pose.position.y = pose.position.y;
+    g.grasp_pose.pose.position.z = pose.position.z;
+
+    // get robot yaw to be used in grasp pose
+    tf::StampedTransform robot_tf;
+    _tf->lookupTransform("map", "base_link", ros::Time(0), robot_tf);
+    double r, p, y;
+    robot_tf.getBasis().getEulerYPR(y, p, r);
+    tf::Quaternion g_ori;
+    g_ori.setRPY(0.0, 0.0, y);
+    g.grasp_pose.pose.orientation.x = g_ori.getX();
+    g.grasp_pose.pose.orientation.y = g_ori.getY();
+    g.grasp_pose.pose.orientation.z = g_ori.getZ();
+    g.grasp_pose.pose.orientation.w = g_ori.getW();
+
+    // location of end-effector before grasp
+    g.pre_grasp_approach.direction.header.frame_id = "base_footprint";
+    g.pre_grasp_approach.direction.vector.x = 1.0;
+    g.pre_grasp_approach.min_distance = 0.1;
+    g.pre_grasp_approach.desired_distance = 0.2;
+
+    // location of end-effector after grasp
+    g.post_grasp_retreat.direction.header.frame_id = "base_footprint";
+    g.post_grasp_retreat.direction.vector.z = 1.0;
+    g.post_grasp_retreat.min_distance = 0.1;
+    g.post_grasp_retreat.desired_distance = 0.2;
+
+    g.max_contact_force = 1.0;
+
+    goal->possible_grasps.push_back(g);
+    return goal;
+}
+
+void ArmInterface::pickup_block(const geometry_msgs::Pose &pose,  const std::string &object){
+    moveit_msgs::PickupGoal *goal = build_pickup_goal(pose, object);
+    PickupClient pc("pickup", true);
+    ROS_INFO("waiting for pickup server.");
+    pc.waitForServer();
+    ROS_INFO("picking up...");
+    pc.sendGoalAndWait(*goal);
+    ROS_INFO("done!");
+    delete goal;
 }
 
 bool ArmInterface::set_gripper_block(double position, double force){

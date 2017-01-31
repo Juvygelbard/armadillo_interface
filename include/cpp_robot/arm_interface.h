@@ -9,11 +9,13 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
 #include <control_msgs/GripperCommandAction.h>
-
+#include <moveit_msgs/PickupGoal.h>
+#include <moveit_msgs/PickupAction.h>
 
 class ArmInterface{
     private:
         typedef actionlib::SimpleActionClient<control_msgs::GripperCommandAction> GripperClient;
+        typedef actionlib::SimpleActionClient<moveit_msgs::PickupAction> PickupClient;
         typedef void (*CallbackBool)(bool success);
         typedef actionlib::SimpleClientGoalState GoalState;
 
@@ -25,6 +27,8 @@ class ArmInterface{
 
         geometry_msgs::PoseStamped xyz_rpy_to_ps(double x, double y, double z, double r_ori, double p_ori, double y_ori);
         void generic_done_callback(const CallbackBool f, const GoalState &state);
+        moveit_msgs::PickupGoal *build_pickup_goal(const geometry_msgs::Pose &pose, const std::string &object);
+
 
     public:
         static const double OPEN_GRIPPER = 0.2;
@@ -50,7 +54,7 @@ class ArmInterface{
 
         // complex arm actions interface
         void push_button(const geometry_msgs::Pose &button); // initil - upgrade to a constarints aware version.
-        void pick(const geometry_msgs::Pose &object);
+        void pickup_block(const geometry_msgs::Pose &pose, const std::string &object);
         ~ArmInterface();
 };
 

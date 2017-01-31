@@ -6,8 +6,6 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <tf/transform_listener.h>
 
-#include <cpp_robot/driver_interface.h>
-
 class ObjectHandler{
     private:
         double _stop_dist;
@@ -25,7 +23,6 @@ class ObjectHandler{
         void add_tracked_object(std::string name);
         void remove_tracked_object(const std::string &name);
         geometry_msgs::Pose *get_object_pose(const std::string &name);
-        DriverInterface::DIGoal *get_object_digoal(const std::string &name);
 
         ~ObjectHandler();
 };

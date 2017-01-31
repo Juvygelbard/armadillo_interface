@@ -64,7 +64,7 @@ int main(int argc, char **argv){
 		ai.close_gripper_no_block();
 		di.drive_block(*p, 0.55);
 		ROS_INFO("Reaching can...");
-		ai.push_button(*p);
+		ai.pickup_block(*p, "can");
 		ROS_INFO("Done!");
 	}
 	else{
