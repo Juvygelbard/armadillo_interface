@@ -9,9 +9,8 @@
 #include <moveit_msgs/CollisionObject.h>
 #include <shape_msgs/Plane.h>
 #include <control_msgs/GripperCommandGoal.h>
-#include <moveit_msgs/PickupGoal.h>
 #include <moveit_msgs/PickupAction.h>
-#include <moveit_msgs/Grasp.h>
+#include <moveit_msgs/PlaceAction.h>
 #include <trajectory_msgs/JointTrajectory.h>
 
 #include <cpp_robot/arm_interface.h>
@@ -22,9 +21,10 @@ ArmInterface::ArmInterface():
     _as(new ros::AsyncSpinner(1)),
     _tf(new tf::TransformListener),
     _gc(new GripperClient("/gripper_controller/gripper_cmd", true)),
-    _puc(new PickupClient("pickup", true))
+    _puc(new PickupClient("pickup", true)),
+    _plc(new PlaceClient("place", true))
 {
-    while (!(_gc->waitForServer() && _puc->waitForServer())){
+    while (!(_gc->waitForServer() && _puc->waitForServer() && _plc->waitForServer())){
         ROS_INFO("waiting for action-servers...");
         ros::Duration(5.0).sleep();
     }
@@ -135,7 +135,7 @@ moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Po
     goal->group_name = "arm";
     goal->end_effector = "eef";
     goal->allow_gripper_support_collision = false;
-    goal->minimize_object_distance = true;
+    goal->minimize_object_distance = false;
 
     ///
     goal->allowed_planning_time = 5.0;
@@ -165,6 +165,27 @@ moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Po
     g.grasp_posture.points[0].effort[0] = 0.4;
 
     // position of end-effector during grasp
+    g.grasp_pose.header.frame_id = "base_link";
+    tf::StampedTransform robot_tf;
+    _tf->lookupTransform("base_link", "map", ros::Time(0), robot_tf);
+    
+    tf::Vector3 v_pos(pose.position.x, pose.position.y, pose.position.z);
+    tf::Vector3 tf_pos = robot_tf * v_pos;
+    tf::Quaternion tf_ori;
+    // robot_tf.getBasis().getRotation(tf_ori);
+    
+    g.grasp_pose.pose.position.x = tf_pos.getX() - 0.02;
+    g.grasp_pose.pose.position.y = tf_pos.getY();
+    g.grasp_pose.pose.position.z = tf_pos.getZ();
+
+    double yaw = atan2( tf_pos.getY(),  tf_pos.getX());
+    tf_ori.setRPY(0.0, 0.0, yaw);
+    
+    g.grasp_pose.pose.orientation.x = tf_ori.getX();
+    g.grasp_pose.pose.orientation.y = tf_ori.getY();
+    g.grasp_pose.pose.orientation.z = tf_ori.getZ();
+    g.grasp_pose.pose.orientation.w = tf_ori.getW();
+/*
     g.grasp_pose.header.frame_id = "map";
     g.grasp_pose.pose.position.x = pose.position.x;
     g.grasp_pose.pose.position.y = pose.position.y;
@@ -181,6 +202,7 @@ moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Po
     g.grasp_pose.pose.orientation.y = g_ori.getY();
     g.grasp_pose.pose.orientation.z = g_ori.getZ();
     g.grasp_pose.pose.orientation.w = g_ori.getW();
+    */
 
     // location of end-effector before grasp
     g.pre_grasp_approach.direction.header.frame_id = "base_footprint";
@@ -226,6 +248,67 @@ void ArmInterface::pickup_no_block(const geometry_msgs::Pose &pose, const std::s
 void ArmInterface::pickup_no_block(CallbackBool callback, const geometry_msgs::Pose &pose, const std::string &object){
     moveit_msgs::PickupGoal *goal = build_pickup_goal(pose, object);
     _puc->sendGoal(*goal, boost::bind(&ArmInterface::generic_done_callback, boost::ref(this), callback, _1));
+    // delete goal;
+}
+
+moveit_msgs::PlaceGoal *ArmInterface::build_place_goal(const geometry_msgs::Pose &pose, const std::string &object){
+    moveit_msgs::PlaceGoal *goal = new moveit_msgs::PlaceGoal();
+    goal->group_name = "arm";
+    goal->attached_object_name = object;
+    goal->place_eef = true;
+    goal->allow_gripper_support_collision = false;
+    
+    ///
+    goal->planner_id = "RRTConnectkConfigDefault";
+    goal->allowed_planning_time = 5.0;
+    goal->planning_options.replan = true;
+    goal->planning_options.replan_attempts = 5;
+    goal->planning_options.replan_delay = 2.0;
+    goal->planning_options.planning_scene_diff.is_diff = true;
+    goal->planning_options.planning_scene_diff.robot_state.is_diff = true;
+    ///
+
+    // building place location
+    std::vector<moveit_msgs::PlaceLocation> pls;
+    moveit_msgs::PlaceLocation pl;
+
+    pl.place_pose.pose = pose;
+    pl.place_pose.header.frame_id = "map";
+
+    pl.pre_place_approach.direction.header.frame_id = "base_footprint";
+    pl.pre_place_approach.direction.vector.z = -1.0;
+    pl.pre_place_approach.min_distance = 0.1;
+    pl.pre_place_approach.desired_distance = 0.2;
+
+    pl.post_place_retreat.direction.header.frame_id = "gripper_link";
+    pl.post_place_retreat.direction.vector.x = -1.0;
+    pl.post_place_retreat.min_distance = 0.0;
+    pl.post_place_retreat.desired_distance = 0.2;
+    
+    pls.push_back(pl);
+    goal->place_locations = pls;
+
+    return goal;
+}
+
+bool ArmInterface::place_block(const geometry_msgs::Pose &pose, const std::string &object){
+    moveit_msgs::PlaceGoal *goal = build_place_goal(pose, object);
+    _plc->sendGoalAndWait(*goal);
+    delete goal;
+
+    return _plc->getState() ==  GoalState::SUCCEEDED;
+}
+
+void ArmInterface::place_no_block(const geometry_msgs::Pose &pose, const std::string &object){
+    moveit_msgs::PlaceGoal *goal = build_place_goal(pose, object);
+    _plc->sendGoal(*goal);
+    // delete goal;
+}
+
+// TODO: CHECK IF POSSIBLE TO DELETE GOAL
+void ArmInterface::place_no_block(CallbackBool callback, const geometry_msgs::Pose &pose, const std::string &object){
+    moveit_msgs::PlaceGoal *goal = build_place_goal(pose, object);
+    _plc->sendGoal(*goal, boost::bind(&ArmInterface::generic_done_callback, boost::ref(this), callback, _1));
     // delete goal;
 }
 
@@ -281,4 +364,5 @@ ArmInterface::~ArmInterface(){
     delete _tf;
     delete _gc;
     delete _puc;
+    delete _plc;
 }

@@ -9,13 +9,14 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
 #include <control_msgs/GripperCommandAction.h>
-#include <moveit_msgs/PickupGoal.h>
 #include <moveit_msgs/PickupAction.h>
+#include <moveit_msgs/PlaceAction.h>
 
 class ArmInterface{
     private:
         typedef actionlib::SimpleActionClient<control_msgs::GripperCommandAction> GripperClient;
         typedef actionlib::SimpleActionClient<moveit_msgs::PickupAction> PickupClient;
+        typedef actionlib::SimpleActionClient<moveit_msgs::PlaceAction> PlaceClient;
         typedef void (*CallbackBool)(bool success);
         typedef actionlib::SimpleClientGoalState GoalState;
 
@@ -25,10 +26,12 @@ class ArmInterface{
         tf::TransformListener *_tf;
         GripperClient *_gc;
         PickupClient *_puc;
+        PlaceClient *_plc;
 
         geometry_msgs::PoseStamped xyz_rpy_to_ps(double x, double y, double z, double r_ori, double p_ori, double y_ori);
         void generic_done_callback(const CallbackBool f, const GoalState &state);
         moveit_msgs::PickupGoal *build_pickup_goal(const geometry_msgs::Pose &pose, const std::string &object);
+        moveit_msgs::PlaceGoal *build_place_goal(const geometry_msgs::Pose &pose, const std::string &object);
 
 
     public:
@@ -59,7 +62,11 @@ class ArmInterface{
         bool pickup_block(const geometry_msgs::Pose &pose, const std::string &object);
         void pickup_no_block(const geometry_msgs::Pose &pose, const std::string &object);
         void pickup_no_block(CallbackBool callback, const geometry_msgs::Pose &pose, const std::string &object);
-        
+
+        bool place_block(const geometry_msgs::Pose &pose, const std::string &object);
+        void place_no_block(const geometry_msgs::Pose &pose, const std::string &object);
+        void place_no_block(CallbackBool callback, const geometry_msgs::Pose &pose, const std::string &object);
+
         ~ArmInterface();
 };
 

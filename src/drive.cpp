@@ -64,17 +64,10 @@ int main(int argc, char **argv){
 		di.drive_block(*p, 0.55);
 		ROS_INFO("Reaching can...");
 		ai.pickup_block(*p, "can");
-		ROS_INFO("Going back...");
-		geometry_msgs::Pose back_p;
-		back_p.position.x = 0.0;
-		back_p.position.y = 0.0;
-		back_p.position.z = 0.0;
-		back_p.orientation.x = 0.0;
-		back_p.orientation.y = 0.0;
-		back_p.orientation.z = 0.0;
-		back_p.orientation.w = 1.0;
-		di.drive_block(back_p);
-		ai.open_gripper_block();
+		ROS_INFO("Victory pose...");
+		ai.move_arm_block(0.2, 0.0, 0.6);
+		ROS_INFO("Placing back...");
+		ai.place_block(*p, "can");
 		ROS_INFO("Done!");
 	}
 	else{
