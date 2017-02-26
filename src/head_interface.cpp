@@ -12,7 +12,7 @@
 
 HeadInterface::HeadInterface():
     _ready(false),
-    _hi(new PointHeadClient("/pan_tilt_trajectory_controller/point_head_action", true);)
+    _hi(new PointHeadClient("/pan_tilt_trajectory_controller/point_head_action", true))
 {
     ros::Duration w(1.0);
     while(!_hi->waitForServer() && ros::ok()){

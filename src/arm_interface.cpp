@@ -16,7 +16,7 @@
 #include <cpp_robot/arm_interface.h>
 
 ArmInterface::ArmInterface():
-    _ready(false);
+    _ready(false),
     _mg(new moveit::planning_interface::MoveGroup("arm")),
     _psi(new moveit::planning_interface::PlanningSceneInterface()),
     _as(new ros::AsyncSpinner(1)),

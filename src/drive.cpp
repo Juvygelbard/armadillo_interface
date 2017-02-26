@@ -53,35 +53,26 @@ int main(int argc, char **argv){
 	ros::NodeHandle nh;
 
 	DriverInterface di;
-	// ObjectHandler oh;
-	// ArmInterface ai;
+	ObjectHandler oh;
+	ArmInterface ai;
 	HeadInterface hi;
 	ros::Duration(1).sleep();
 
-	ROS_INFO("calling...");
-	di.drive_block(1.0, 0.3);
-	while(ros::ok()){
-		hi.point_head_block(1.0, 1.0, 0.0);
-		hi.point_head_block(1.0, -1.0, 0.0);
+	geometry_msgs::Pose *p = oh.get_object_pose("can");
+	if(p){
+		ROS_INFO("Found can!");
+		di.drive_block(*p, 0.55);
+		ROS_INFO("Reaching can...");
+		ai.pickup_block(*p, "can");
+		ROS_INFO("Victory pose...");
+		ai.move_arm_block(0.4, 0.0, 0.5);
+		ROS_INFO("Placing back...");
+		ai.place_block(*p, "can");
+		ROS_INFO("Done!");
 	}
-
-	ros::spin();
-
-	// geometry_msgs::Pose *p = oh.get_object_pose("can");
-	// if(p){
-	// 	ROS_INFO("Found can!");
-	// 	di.drive_block(*p, 0.55);
-	// 	ROS_INFO("Reaching can...");
-	// 	ai.pickup_block(*p, "can");
-	// 	ROS_INFO("Victory pose...");
-	// 	ai.move_arm_block(0.4, 0.0, 0.5);
-	// 	ROS_INFO("Placing back...");
-	// 	ai.place_block(*p, "can");
-	// 	ROS_INFO("Done!");
-	// }
-	// else{
-	// 	ROS_INFO("Can't find can!");
-	// }
+	else{
+		ROS_INFO("Can't find can!");
+	}
 
 	// FuncFSMNode *a_node = new FuncFSMNode(&a);
 	// FuncFSMNode *b_node = new FuncFSMNode(&b);
