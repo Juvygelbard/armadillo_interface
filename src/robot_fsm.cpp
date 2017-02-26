@@ -5,7 +5,7 @@
 // RobotFSM Implementation
 
 RobotFSM::RobotFSM():
-    _nodes(new std::map<int, RobotFSMNode*>()),
+    _nodes(new std::map<int, FSMNode*>()),
     _start(0)
 {
 
@@ -34,8 +34,8 @@ void RobotFSM::set_start(int id){
     _start = id;
 }
 
-void RobotFSM::add_node(int id, RobotFSMNode *node){
-    if(!_nodes->insert(std::pair<int, RobotFSMNode*>(id, node)).second)
+void RobotFSM::add_node(int id, FSMNode *node){
+    if(!_nodes->insert(std::pair<int, FSMNode*>(id, node)).second)
         ROS_ERROR("node %i was already defined!", id);
 }
 
@@ -54,3 +54,19 @@ int FuncFSMNode::execute(){
 }
 
 FuncFSMNode::~FuncFSMNode(){}
+
+// DisjFSMNode Implementation
+
+DisjFSMNode::DisjFSMNode(const std::vector<FSMNode> &nodes):
+    _nodes(nodes)
+{}
+
+// TODO: implement!
+int DisjFSMNode::execute(){
+    // std::mutex m;
+    return 0;
+}
+
+DisjFSMNode::~DisjFSMNode(){
+
+}

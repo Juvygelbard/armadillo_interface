@@ -1,14 +1,14 @@
 #ifndef ROBOT_FSM_H_
 #define ROBOT_FSM_H_
 
-class RobotFSMNode{
+class FSMNode{
     public:
         virtual int execute()=0;
 };
 
-class RobotFSM: public RobotFSMNode{
+class RobotFSM: public FSMNode{
     private:
-        std::map<int, RobotFSMNode*> *_nodes;
+        std::map<int, FSMNode*> *_nodes;
         int _start;
 
     public:
@@ -16,11 +16,11 @@ class RobotFSM: public RobotFSMNode{
         int execute();
         bool run();
         void set_start(int id);
-        void add_node(int id, RobotFSMNode *node);
+        void add_node(int id, FSMNode *node);
         ~RobotFSM();
 };
 
-class FuncFSMNode: public RobotFSMNode{     
+class FuncFSMNode: public FSMNode{     
     public:
         typedef int (*ExecuteFunc)();
 
@@ -33,5 +33,16 @@ class FuncFSMNode: public RobotFSMNode{
 };
 
 // TODO: implement conjuction-node, disjunction-node, supervised-node (inherite from disj-node)
+
+// rescives a bector of nodes, returnes the answer from the first node to finish
+class DisjFSMNode: public FSMNode{
+    private:
+        const std::vector<FSMNode> &_nodes;
+
+    public:
+        DisjFSMNode(const std::vector<FSMNode> &nodes);
+        int execute();
+        ~DisjFSMNode();
+};
 
 #endif
