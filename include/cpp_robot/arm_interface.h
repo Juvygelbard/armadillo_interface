@@ -5,6 +5,7 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <tf/transform_listener.h>
 #include <actionlib/client/simple_action_client.h>
+#include <boost/atomic.hpp>
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
@@ -20,6 +21,7 @@ class ArmInterface{
         typedef void (*CallbackBool)(bool success);
         typedef actionlib::SimpleClientGoalState GoalState;
 
+        boost::atomic<bool> _ready;
         moveit::planning_interface::MoveGroup *_mg;
         moveit::planning_interface::PlanningSceneInterface *_psi;
         ros::AsyncSpinner *_as;
@@ -57,7 +59,7 @@ class ArmInterface{
         void close_gripper_no_block(CallbackBool callback, double forec=0.2);
 
         // complex arm actions interface
-        void push_button(const geometry_msgs::Pose &button); // initil - upgrade to a constarints aware version.
+        void push_button(const geometry_msgs::Pose &button); // initial - upgrade to a constarints aware version.
 
         bool pickup_block(const geometry_msgs::Pose &pose, const std::string &object);
         void pickup_no_block(const geometry_msgs::Pose &pose, const std::string &object);

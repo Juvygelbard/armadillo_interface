@@ -32,4 +32,6 @@ class FuncFSMNode: public RobotFSMNode{
         ExecuteFunc _func;
 };
 
+// TODO: implement conjuction-node, disjunction-node, supervised-node (inherite from disj-node)
+
 #endif

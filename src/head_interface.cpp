@@ -6,16 +6,18 @@
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <pr2_controllers_msgs/PointHeadGoal.h>
 #include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/Pose.h>
 
 #include <cpp_robot/head_interface.h>
 
 HeadInterface::HeadInterface():
     _ready(false),
-    _hi(0)
+    _hi(new PointHeadClient("/pan_tilt_trajectory_controller/point_head_action", true);)
 {
-    _hi = new PointHeadClient("/pan_tilt_trajectory_controller/point_head_action", true);
-    while(!_hi->waitForServer(ros::Duration(5.0)) && ros::ok()){
-        ROS_INFO("Waiting for point head server.");
+    ros::Duration w(1.0);
+    while(!_hi->waitForServer() && ros::ok()){
+        ROS_INFO("Waiting for action servers...");
+        w.sleep();
     }
     _ready = true;
 }
@@ -46,7 +48,17 @@ bool HeadInterface::point_head_block(double x, double y, double z, double vel){
         ROS_ERROR("HeadInterface is not ready!");
         return false;
     }
-    HIGoal goal = xyz_to_goal("base_link", x, y, z, vel);
+    HIGoal goal = xyz_to_goal("head_link", x, y, z, vel);
+    _hi->sendGoalAndWait(goal);
+    return _hi->getState() == GoalState::SUCCEEDED;
+}
+
+bool HeadInterface::point_head_block(const geometry_msgs::Pose &pose, double vel){
+    if(!_ready){
+        ROS_ERROR("HeadInterface is not ready!");
+        return false;
+    }
+    HIGoal goal = xyz_to_goal("map", pose.position.x, pose.position.y, pose.position.z, vel);
     _hi->sendGoalAndWait(goal);
     return _hi->getState() == GoalState::SUCCEEDED;
 }
@@ -55,23 +67,36 @@ void HeadInterface::point_head_no_block(double x, double y, double z, double vel
     if(!_ready)
         ROS_ERROR("HeadInterface is not ready!");
     else{
-        HIGoal goal = xyz_to_goal("base_link", x, y, z, vel);
+        HIGoal goal = xyz_to_goal("head_link", x, y, z, vel);
         _hi->sendGoal(goal);
     }
 }
 
+void HeadInterface::point_head_no_block(const geometry_msgs::Pose &pose, double vel){
+    if(!_ready)
+        ROS_ERROR("HeadInterface is not ready!");
+    HIGoal goal = xyz_to_goal("map", pose.position.x, pose.position.y, pose.position.z, vel);
+    _hi->sendGoal(goal);
+}
+
 void HeadInterface::generic_done_callback(const CallbackBool f, const GoalState &state){
-    if(state == GoalState::SUCCEEDED)
-        f(true);
-    else
-        f(false);
+    f(state == GoalState::SUCCEEDED);
 }
 
 void HeadInterface::point_head_no_block(const CallbackBool callback, double x, double y, double z, double vel){
     if(!_ready)
         ROS_ERROR("HeadInterface is not ready!");
     else{
-        HIGoal goal = xyz_to_goal("base_link", x, y, z, vel);
+        HIGoal goal = xyz_to_goal("head_link", x, y, z, vel);
+        _hi->sendGoal(goal, boost::bind(&HeadInterface::generic_done_callback, boost::ref(this), callback, _1));
+    }
+}
+
+void HeadInterface::point_head_no_block(const CallbackBool callback, const geometry_msgs::Pose &pose, double vel){
+    if(!_ready)
+        ROS_ERROR("HeadInterface is not ready!");
+    else{
+        HIGoal goal = xyz_to_goal("map", pose.position.x, pose.position.y, pose.position.z, vel);
         _hi->sendGoal(goal, boost::bind(&HeadInterface::generic_done_callback, boost::ref(this), callback, _1));
     }
 }

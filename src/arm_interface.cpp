@@ -16,6 +16,7 @@
 #include <cpp_robot/arm_interface.h>
 
 ArmInterface::ArmInterface():
+    _ready(false);
     _mg(new moveit::planning_interface::MoveGroup("arm")),
     _psi(new moveit::planning_interface::PlanningSceneInterface()),
     _as(new ros::AsyncSpinner(1)),
@@ -24,9 +25,10 @@ ArmInterface::ArmInterface():
     _puc(new PickupClient("pickup", true)),
     _plc(new PlaceClient("place", true))
 {
-    while (!(_gc->waitForServer() && _puc->waitForServer() && _plc->waitForServer())){
-        ROS_INFO("waiting for action-servers...");
-        ros::Duration(5.0).sleep();
+    ros::Duration w(1.0);
+    while (!(_gc->waitForServer() && _puc->waitForServer() && _plc->waitForServer()) && ros::ok()){
+        ROS_INFO("Waiting for action servers...");
+        w.sleep();
     }
 }
 
@@ -131,7 +133,6 @@ moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Po
     moveit_msgs::PickupGoal *goal = new moveit_msgs::PickupGoal;
 
     goal->target_name = object;
-
     goal->group_name = "arm";
     goal->end_effector = "eef";
     goal->allow_gripper_support_collision = false;
@@ -223,10 +224,7 @@ moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Po
 }
 
 void ArmInterface::generic_done_callback(const CallbackBool f, const GoalState &state){
-    if(state == GoalState::SUCCEEDED)
-        f(true);
-    else
-        f(false);
+    f(state == GoalState::SUCCEEDED);
 }
 
 bool ArmInterface::pickup_block(const geometry_msgs::Pose &pose,  const std::string &object){

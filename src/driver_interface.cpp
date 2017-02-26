@@ -2,28 +2,110 @@
 #include <actionlib/client/simple_action_client.h>
 #include <boost/bind.hpp>
 #include <boost/ref.hpp>
+#include <boost/thread.hpp>
+#include <boost/atomic.hpp>
 #include <tf/transform_listener.h>
 #include <costmap_2d/costmap_2d_ros.h>
 #include <base_local_planner/costmap_model.h>
+#include <actionlib/server/simple_action_server.h>
 
 #include <move_base_msgs/MoveBaseAction.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Twist.h>
+#include <cpp_robot/SimpleDriverAction.h>
+#include <cpp_robot/SimpleDriverFeedback.h>
 
 #include <cpp_robot/driver_interface.h>
+
+SimpleDriverServer::SimpleDriverServer():
+    _nh(new ros::NodeHandle()),
+    _cbq(new ros::CallbackQueue()),
+    _tf(new tf::TransformListener()),
+    _sas(0),
+    _active(true)
+{
+    _nh->setCallbackQueue(_cbq);
+    _pub = _nh->advertise<geometry_msgs::Twist>("cmd_vel", 100);
+    _sas = new actionlib::SimpleActionServer<cpp_robot::SimpleDriverAction>(*_nh, "simple_driver", boost::bind(&SimpleDriverServer::callback, boost::ref(this), _1), false);
+    _tf->waitForTransform("base_footprint", "odom", ros::Time(0), ros::Duration(5.0));
+    _sas->start();
+
+    // spin local queue
+    while(ros::ok() && _active){
+        _cbq->callAvailable(ros::WallDuration(0));
+    }  
+}
+
+void SimpleDriverServer::stop_server(){
+    _active = false;
+}
+
+void SimpleDriverServer::callback(const cpp_robot::SimpleDriverGoalConstPtr &goal){
+    tf::StampedTransform start_tf, curr_tf;
+    cpp_robot::SimpleDriverFeedback feedback;
+    double dist=0;
+
+    // record starting position
+    _tf->lookupTransform("base_footprint", "odom", ros::Time(0), start_tf);
+    ros::Rate r(1);
+
+    bool success = false;
+    while(ros::ok() && !success && !_sas->isPreemptRequested()){
+        // move
+        _pub.publish(goal->cmd);
+        r.sleep();
+
+        // update distance traveled so-far
+        _tf->lookupTransform("base_footprint", "odom", ros::Time(0), curr_tf);
+        tf::Transform relative_tf = start_tf.inverse() * curr_tf;
+        dist = relative_tf.getOrigin().length();
+        feedback.distance = dist;
+        _sas->publishFeedback(feedback);
+        
+        // check if done
+        success = dist >= goal->distance;
+    }
+    
+    if(success){
+        cpp_robot::SimpleDriverResult result;
+        result.distance = dist;
+        _sas->setSucceeded(result);
+    }
+}
+
+SimpleDriverServer::~SimpleDriverServer(){
+    delete _sas;
+    delete _nh;
+    delete _cbq;
+    delete _tf;
+}
 
 DriverInterface::DriverInterface():
     _ready(false),
     _mb(0),
     _tfl(new tf::TransformListener),
     _cm_interface(new costmap_2d::Costmap2DROS("global_costmap", *_tfl)),
-    _cm_model(new base_local_planner::CostmapModel(*_cm_interface->getCostmap())){
-    // init move_base client
+    _cm_model(new base_local_planner::CostmapModel(*_cm_interface->getCostmap())),
+    _sd(0){
+    // start simple-driver server
+    boost::thread sd_thread(boost::bind(&DriverInterface::start_sd_server, boost::ref(this)));
+
+    // init move_base and simple-driver clients
     _mb = new MBClient("move_base", true);
-    while(!_mb->waitForServer(ros::Duration(5.0)) && ros::ok()){
-		ROS_INFO("Waiting for move_base server.");
+    _sd = new SDClient("simple_driver", true);
+
+    // wait for both servers to come-up
+    ros::Duration w(1.0);
+    while(!(_mb->waitForServer() && _sd->waitForServer()) && ros::ok()){
+		ROS_INFO("Waiting for action servers...");
+        w.sleep();
 	}
-    if(ros::ok())
-        _ready = true;
+    _ready = true;
+}
+
+void DriverInterface::start_sd_server(){
+    ROS_INFO("starting simple-drive server...");
+    SimpleDriverServer sd_server;
 }
 
 bool DriverInterface::pose_blocked(const geometry_msgs::Pose &pose){
@@ -79,15 +161,6 @@ geometry_msgs::Pose *DriverInterface::get_best_pose_in_rad(const geometry_msgs::
     return 0;
 }
 
-DriverInterface::DIGoal DriverInterface::xw_to_digoal(double x, double w){
-    DIGoal goal;
-    goal.target_pose.header.frame_id = "map";
-    goal.target_pose.header.stamp = ros::Time::now();
-    goal.target_pose.pose.position.x = x;
-    goal.target_pose.pose.orientation.w = w;
-    return goal;
-}
-
 DriverInterface::DIGoal *DriverInterface::build_digoal(geometry_msgs::Pose &object, double radius){
     // get robot position
     tf::StampedTransform robot_transform;
@@ -131,8 +204,10 @@ DriverInterface::DIGoal *DriverInterface::build_digoal(geometry_msgs::Pose &obje
 }
 
 bool DriverInterface::drive_block(geometry_msgs::Pose &object, double radius){
-    if(!_ready)
+    if(!_ready){
         ROS_ERROR("DriverInterface is not ready!");
+        return false;
+    }
 
     DIGoal *goal = build_digoal(object, radius);
 
@@ -157,49 +232,71 @@ void DriverInterface::drive_no_block(geometry_msgs::Pose &object, double radius)
 }
 
 void DriverInterface::generic_done_callback(const CallbackBool f, const GoalState &state){
-    if(state == GoalState::SUCCEEDED)
-        f(true);
-    else
-        f(false);
+    f(state == GoalState::SUCCEEDED);
 }
 
 // NOTE: THERE IS A MEMORY LEAK HERE!
 void DriverInterface::drive_no_block(const CallbackBool callback, geometry_msgs::Pose &object, double radius){
-    if(!_ready)
+    if(!_ready){
         ROS_ERROR("DriverInterface is not ready!");
+        callback(false);
+    }
     else{
         DIGoal *goal = build_digoal(object, radius);
         _mb->sendGoal(*goal, boost::bind(&DriverInterface::generic_done_callback, boost::ref(this), callback, _1));
     }
 }
 
-bool DriverInterface::drive_block(double x, double w, double vel){
-    // DIGoal goal = xw_to_digoal(x, w);
-    // return drive_block(goal);
+bool DriverInterface::drive_block(double dist, double z, double vel){
+    if(!_ready){
+        ROS_ERROR("DriverInterface is not ready!");
+        return false;
+    }
+    SDGoal goal;
+    goal.cmd.linear.x = vel;
+    goal.cmd.angular.z = z;
+    goal.distance = dist;
+    _sd->sendGoalAndWait(goal);
+    return _sd->getState() == GoalState::SUCCEEDED;
 }
 
-void DriverInterface::drive_no_block(double x, double w, double vel){
-    // DIGoal goal = xw_to_digoal(x, w);
-    // drive_no_block(goal);
+void DriverInterface::drive_no_block(double dist, double z, double vel){
+    if(!_ready){
+        ROS_ERROR("DriverInterface is not ready!");
+    }
+    else{
+        SDGoal goal;
+        goal.cmd.linear.x = vel;
+        goal.cmd.angular.z = z;
+        goal.distance = dist;
+        _sd->sendGoal(goal);
+    }
 }
 
-void DriverInterface::drive_no_block(const CallbackBool callback, double x, double w, double vel){
-    // DIGoal goal = xw_to_digoal(x, w);
-    // drive_no_block(callback, goal);
+void DriverInterface::drive_no_block(const CallbackBool callback, double dist, double z, double vel){
+    if(!_ready){
+        ROS_ERROR("DriverInterface is not ready!");
+        callback(false);
+    }
+    else{
+        SDGoal goal;
+        goal.cmd.linear.x = vel;
+        goal.cmd.angular.z = z;
+        goal.distance = dist;
+        _sd->sendGoal(goal, boost::bind(&DriverInterface::generic_done_callback, boost::ref(this), callback, _1));
+    }
 }
 
 
 void DriverInterface::stop(){
     _mb->cancelAllGoals();
+    _sd->cancelAllGoals();
 }
 
 DriverInterface::~DriverInterface(){
-    if(_mb)
         delete _mb;
-    if(_tfl)
         delete _tfl;
-    if(_cm_interface)
         delete _cm_interface;
-    if(_cm_model)
         delete _cm_model;
+        delete _sd;
 }
