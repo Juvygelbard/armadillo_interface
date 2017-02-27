@@ -1,4 +1,9 @@
 #include <ros/ros.h>
+#include <boost/bind.hpp>
+#include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/condition_variable.hpp>
 
 #include <cpp_robot/robot_fsm.h>
 
@@ -57,14 +62,43 @@ FuncFSMNode::~FuncFSMNode(){}
 
 // DisjFSMNode Implementation
 
-DisjFSMNode::DisjFSMNode(const std::vector<FSMNode> &nodes):
-    _nodes(nodes)
+DisjFSMNode::DisjFSMNode(const std::vector<FSMNode*> nodes):
+    _nodes(nodes),
+    _cv(),
+    _done_mutex(),
+    _done(false)
 {}
 
-// TODO: implement!
+void DisjFSMNode::worker(FSMNode *node){
+    int next = node->execute();
+    _done_mutex.lock();
+    if(!_done){
+        _next = next;
+        _done = true;
+        _cv.notify_all();
+    }
+    _done_mutex.unlock();
+}
+
+int DisjFSMNode::post_execution(int next){
+    return next;
+}
+
 int DisjFSMNode::execute(){
-    // std::mutex m;
-    return 0;
+    _done_mutex.lock();
+    _done = false;
+    _done_mutex.unlock();
+
+    boost::mutex mutex;
+    boost::unique_lock<boost::mutex> lock(mutex);
+    
+    // start threads
+    for(std::vector<FSMNode*>::const_iterator it = _nodes.begin(); it != _nodes.end(); ++it){
+        boost::thread(&DisjFSMNode::worker, this, *it);
+    }
+
+    _cv.wait(lock);
+    return post_execution(_next);
 }
 
 DisjFSMNode::~DisjFSMNode(){

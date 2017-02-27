@@ -1,6 +1,10 @@
 #ifndef ROBOT_FSM_H_
 #define ROBOT_FSM_H_
 
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/condition_variable.hpp>
+
 class FSMNode{
     public:
         virtual int execute()=0;
@@ -34,13 +38,21 @@ class FuncFSMNode: public FSMNode{
 
 // TODO: implement conjuction-node, disjunction-node, supervised-node (inherite from disj-node)
 
-// rescives a bector of nodes, returnes the answer from the first node to finish
+// rescives a vector of nodes, returnes the answer from the first node to finish
 class DisjFSMNode: public FSMNode{
     private:
-        const std::vector<FSMNode> &_nodes;
+        const std::vector<FSMNode*> _nodes;
+        boost::condition_variable _cv;
+        boost::mutex _done_mutex;
+        bool _done;
+        int _next;
+
+        void worker(FSMNode *node);
+        // to be overriden
+        virtual int post_execution(int next);
 
     public:
-        DisjFSMNode(const std::vector<FSMNode> &nodes);
+        DisjFSMNode(const std::vector<FSMNode*> nodes);
         int execute();
         ~DisjFSMNode();
 };

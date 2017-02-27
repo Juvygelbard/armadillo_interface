@@ -8,90 +8,71 @@
 #include <cpp_robot/head_interface.h>
 #include <cpp_robot/robot_fsm.h>
 
-// void ending(bool success){
-// 	if(success)
-// 		ROS_INFO("Done Moving!");
-// 	else
-// 		ROS_INFO("Failed Moving!");
-// }
+bool stop = false;
 
-// int a(){
-// 	HeadInterface hi;
-// 	DriverInterface di;
-// 	hi.point_head_no_block(0, 0, 0);
-// 	di.drive_block(1.0, 1.0);
-// 	return 3;
-// }
+// drive node
+int drive_forward(){
+	DriverInterface di;
+	di.drive_block(1.0, -0.3);
+	return 3;
+}
 
-// int b(){
-// 	ObjectHandler hi;
-// 	geometry_msgs::Pose *p = hi.get_object_pose("can");
-// 	if(p)
-// 		return 4;
-// 	else{
-// 		ROS_INFO("Can't find");
-// 		return 5;
-// 	}
-// }
+int look_around(){
+	HeadInterface hi;
+	while(ros::ok() && !stop){
+		hi.point_head_block(1.0, 1.0, 0.0);
+		hi.point_head_block(1.0, -1.0, 0.0);
+	}
+	return 3;
+}
 
-// int c(){
-// 	ObjectHandler oh;
-// 	HeadInterface hi;
-// 	geometry_msgs::Pose *p = oh.get_object_pose("can");
-// 	hi.point_head_block(p->position.x, p->position.y, p->position.z);
-// 	return 1;
-// }
-
-// int d(){
-// 	DriverInterface di;
-// 	di.drive_block(-1.0, -1.0);
-// 	return 0;
-// }
+int stop_all(){
+	stop = true;
+	return 1;
+}
 
 int main(int argc, char **argv){
 	ros::init(argc, argv, "navigate");
 	ros::NodeHandle nh;
 
-	DriverInterface di;
-	ObjectHandler oh;
-	ArmInterface ai;
-	HeadInterface hi;
-	ros::Duration(1).sleep();
+	// DriverInterface di;
+	// ObjectHandler oh;
+	// ArmInterface ai;
+	// HeadInterface hi;
+	// ros::Duration(1).sleep();
 
-	geometry_msgs::Pose *p = oh.get_object_pose("can");
-	if(p){
-		ROS_INFO("Found can!");
-		di.drive_block(*p, 0.55);
-		ROS_INFO("Reaching can...");
-		ai.pickup_block(*p, "can");
-		ROS_INFO("Victory pose...");
-		ai.move_arm_block(0.4, 0.0, 0.5);
-		ROS_INFO("Placing back...");
-		ai.place_block(*p, "can");
-		ROS_INFO("Done!");
-	}
-	else{
-		ROS_INFO("Can't find can!");
-	}
+	// geometry_msgs::Pose *p = oh.get_object_pose("can");
+	// if(p){
+	// 	ROS_INFO("Found can!");
+	// 	di.drive_block(*p, 0.55);
+	// 	ROS_INFO("Reaching can...");
+	// 	ai.pickup_block(*p, "can");
+	// 	ROS_INFO("Victory pose...");
+	// 	ai.move_arm_block(0.4, 0.0, 0.5);
+	// 	ROS_INFO("Placing back...");
+	// 	ai.place_block(*p, "can");
+	// 	ROS_INFO("Done!");
+	// }
+	// else{
+	// 	ROS_INFO("Can't find can!");
+	// }
 
-	// FuncFSMNode *a_node = new FuncFSMNode(&a);
-	// FuncFSMNode *b_node = new FuncFSMNode(&b);
-	// FuncFSMNode *c_node = new FuncFSMNode(&c);
-	// FuncFSMNode *d_node = new FuncFSMNode(&d);
+	FuncFSMNode drive_forward_node(&drive_forward);
+	FuncFSMNode look_around_node(&look_around);
+	FuncFSMNode stop_all_node(&stop_all);
 
-	// RobotFSM fsm;
-	// fsm.add_node(2, a_node);
-	// fsm.add_node(3, b_node);
-	// fsm.add_node(4, c_node);
-	// fsm.add_node(5, d_node);
-	// fsm.set_start(2);
-	// ending(fsm.run());
+	std::vector<FSMNode*> disj_nodes;
+	disj_nodes.push_back(&drive_forward_node);
+	disj_nodes.push_back(&look_around_node);
 	
-	// ros::spin();
+	DisjFSMNode drive_and_look_node(disj_nodes);
 
-	// delete a_node;
-	// delete b_node;
-	// delete c_node;
+	RobotFSM fsm;
+	fsm.add_node(2, &drive_and_look_node);
+	fsm.add_node(3, &stop_all_node);
+	fsm.set_start(2);
+	ROS_INFO(fsm.run() ? "Success!" : "Fail!");
 
+	ros::spin();
 	return 0;
 }

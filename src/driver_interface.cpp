@@ -88,7 +88,7 @@ DriverInterface::DriverInterface():
     _cm_model(new base_local_planner::CostmapModel(*_cm_interface->getCostmap())),
     _sd(0){
     // start simple-driver server
-    boost::thread sd_thread(boost::bind(&DriverInterface::start_sd_server, boost::ref(this)));
+    boost::thread sd_thread(&DriverInterface::start_sd_server, this);
 
     // init move_base and simple-driver clients
     _mb = new MBClient("move_base", true);
