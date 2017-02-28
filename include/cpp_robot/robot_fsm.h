@@ -38,7 +38,7 @@ class FuncFSMNode: public FSMNode{
 
 // TODO: implement conjuction-node, disjunction-node, supervised-node (inherite from disj-node)
 
-// rescives a vector of nodes, returnes the answer from the first node to finish
+// rescives a vector of nodes, returns once the first node finishes
 class DisjFSMNode: public FSMNode{
     private:
         const std::vector<FSMNode*> _nodes;
@@ -55,6 +55,26 @@ class DisjFSMNode: public FSMNode{
         DisjFSMNode(const std::vector<FSMNode*> nodes);
         int execute();
         ~DisjFSMNode();
+};
+
+class ConjFSMNode: public FSMNode{
+    private:
+        const std::vector<FSMNode*> _nodes;
+        std::vector<int> _next;
+        int _counter;
+        boost::mutex _c_mut;
+        boost::condition_variable _cv;
+
+        void dec_counter();
+        bool is_done();
+        void worker(int id);
+        virtual int post_execution(std::vector<int> &next);
+
+    public:
+        ConjFSMNode(std::vector<FSMNode*> nodes);
+        int execute();
+        ~ConjFSMNode();
+
 };
 
 #endif

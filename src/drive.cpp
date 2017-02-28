@@ -18,12 +18,16 @@ int drive_forward(){
 }
 
 int look_around(){
-	HeadInterface hi;
-	while(ros::ok() && !stop){
-		hi.point_head_block(1.0, 1.0, 0.0);
-		hi.point_head_block(1.0, -1.0, 0.0);
+	// HeadInterface hi;
+	// while(ros::ok() && !stop){
+	// 	hi.point_head_block(1.0, 1.0, 0.0);
+	// 	hi.point_head_block(1.0, -1.0, 0.0);
+	// }
+	for(int i=0; i<20; i++){
+		std::cout << i << std::endl;
+		ros::Duration(1.0).sleep();
 	}
-	return 3;
+	return 4;
 }
 
 int stop_all(){
@@ -61,11 +65,11 @@ int main(int argc, char **argv){
 	FuncFSMNode look_around_node(&look_around);
 	FuncFSMNode stop_all_node(&stop_all);
 
-	std::vector<FSMNode*> disj_nodes;
-	disj_nodes.push_back(&drive_forward_node);
-	disj_nodes.push_back(&look_around_node);
+	std::vector<FSMNode*> conj_nodes;
+	conj_nodes.push_back(&drive_forward_node);
+	conj_nodes.push_back(&look_around_node);
 	
-	DisjFSMNode drive_and_look_node(disj_nodes);
+	ConjFSMNode drive_and_look_node(conj_nodes);
 
 	RobotFSM fsm;
 	fsm.add_node(2, &drive_and_look_node);
