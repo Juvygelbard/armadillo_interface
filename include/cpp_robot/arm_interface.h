@@ -32,7 +32,7 @@ class ArmInterface{
 
         geometry_msgs::PoseStamped xyz_rpy_to_ps(double x, double y, double z, double r_ori, double p_ori, double y_ori);
         void generic_done_callback(const CallbackBool f, const GoalState &state);
-        moveit_msgs::PickupGoal *build_pickup_goal(const geometry_msgs::Pose &pose, const std::string &object, double d_yaw=0, double d_pitch=0);
+        moveit_msgs::PickupGoal *build_pickup_goal(const geometry_msgs::Pose &pose, const std::string &object, double d_x=0, double d_y=0, double d_z=0, double d_Y=0);
         moveit_msgs::PlaceGoal *build_place_goal(const geometry_msgs::Pose &pose, const std::string &object);
 
 

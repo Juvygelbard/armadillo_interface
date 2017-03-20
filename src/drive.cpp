@@ -39,43 +39,50 @@ int main(int argc, char **argv){
 	ros::init(argc, argv, "navigate");
 	ros::NodeHandle nh;
 
-	// DriverInterface di;
-	// ObjectHandler oh;
-	// ArmInterface ai;
-	// HeadInterface hi;
-	// ros::Duration(1).sleep();
+	DriverInterface di;
+	ObjectHandler oh;
+	ArmInterface ai;
+	HeadInterface hi;
+	ros::Duration(1).sleep();
 
-	// geometry_msgs::Pose *p = oh.get_object_pose("can");
-	// if(p){
-	// 	ROS_INFO("Found can!");
-	// 	di.drive_block(*p, 0.55);
-	// 	ROS_INFO("Reaching can...");
-	// 	ai.pickup_block(*p, "can");
-	// 	ROS_INFO("Victory pose...");
-	// 	ai.move_arm_block(0.4, 0.0, 0.5);
-	// 	ROS_INFO("Placing back...");
-	// 	ai.place_block(*p, "can");
-	// 	ROS_INFO("Done!");
-	// }
-	// else{
-	// 	ROS_INFO("Can't find can!");
-	// }
+	geometry_msgs::Pose *p = oh.get_object_pose("can");
+	if(p){
+		ROS_INFO("Found can!");
+		// hi.point_head_no_block(*p);
+		// di.drive_block(*p, 0.55);
+		// hi.stop();
+		// hi.point_head_no_block(*p);
+		// ros::Duration(3.0).sleep();
+		// hi.stop();
+		// p = oh.get_object_pose("can");
+		// ROS_INFO("Reaching can...");
+		ai.pickup_block(*p, "can");
+		hi.stop();
+		ROS_INFO("Victory pose...");
+		ai.move_arm_block(0.4, 0.0, 0.5);
+		ROS_INFO("Placing back...");
+		ai.place_block(*p, "can");
+		ROS_INFO("Done!");
+	}
+	else{
+		ROS_INFO("Can't find can!");
+	}
 
-	FuncFSMNode drive_forward_node(&drive_forward);
-	FuncFSMNode look_around_node(&look_around);
-	FuncFSMNode stop_all_node(&stop_all);
+	// FuncFSMNode drive_forward_node(&drive_forward);
+	// FuncFSMNode look_around_node(&look_around);
+	// FuncFSMNode stop_all_node(&stop_all);
 
-	std::vector<FSMNode*> conj_nodes;
-	conj_nodes.push_back(&drive_forward_node);
-	conj_nodes.push_back(&look_around_node);
+	// std::vector<FSMNode*> conj_nodes;
+	// conj_nodes.push_back(&drive_forward_node);
+	// conj_nodes.push_back(&look_around_node);
 	
-	ConjFSMNode drive_and_look_node(conj_nodes);
+	// ConjFSMNode drive_and_look_node(conj_nodes);
 
-	RobotFSM fsm;
-	fsm.add_node(2, &drive_and_look_node);
-	fsm.add_node(3, &stop_all_node);
-	fsm.set_start(2);
-	ROS_INFO(fsm.run() ? "Success!" : "Fail!");
+	// RobotFSM fsm;
+	// fsm.add_node(2, &drive_and_look_node);
+	// fsm.add_node(3, &stop_all_node);
+	// fsm.set_start(2);
+	// ROS_INFO(fsm.run() ? "Success!" : "Fail!");
 
 	ros::spin();
 	return 0;

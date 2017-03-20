@@ -131,7 +131,7 @@ void ArmInterface::push_button(const geometry_msgs::Pose &button){
 }
 
 // TODO: change reference frame for grasp. make grasp closer to robot.
-moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Pose &pose, const std::string &object, double d_yaw, double d_pitch){
+moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Pose &pose, const std::string &object, double d_x, double d_y, double d_z, double d_Y){
     moveit_msgs::PickupGoal *goal = new moveit_msgs::PickupGoal;
 
     // basic information regarding pick action
@@ -142,12 +142,12 @@ moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Po
     goal->minimize_object_distance = false;
 
     // planning stuff
-    goal->allowed_planning_time = 5.0;
-    goal->planning_options.replan_delay = 2.0;
+    goal->allowed_planning_time = 10.0;
+    goal->planning_options.replan_delay = 0.0;
     goal->planning_options.planning_scene_diff.is_diff = true;
     goal->planning_options.planning_scene_diff.robot_state.is_diff = true;
-    goal->planning_options.replan=true;
-    goal->planning_options.replan_attempts=5;
+    goal->planning_options.replan = true;
+    goal->planning_options.replan_attempts = 10;
     goal->planner_id = "RRTConnectkConfigDefault";
 
     moveit_msgs::Grasp g;
@@ -176,12 +176,12 @@ moveit_msgs::PickupGoal *ArmInterface::build_pickup_goal(const geometry_msgs::Po
     tf::Vector3 tf_pos = robot_tf * v_pos;
     tf::Quaternion tf_ori;
     
-    g.grasp_pose.pose.position.x = tf_pos.getX() - 0.02;
-    g.grasp_pose.pose.position.y = tf_pos.getY();
-    g.grasp_pose.pose.position.z = tf_pos.getZ();
+    g.grasp_pose.pose.position.x = tf_pos.getX() + d_x;
+    g.grasp_pose.pose.position.y = tf_pos.getY() + d_y;
+    g.grasp_pose.pose.position.z = tf_pos.getZ() + d_z;
 
     double yaw = atan2( tf_pos.getY(),  tf_pos.getX());
-    tf_ori.setRPY(0.0, 0.0+d_pitch, yaw+d_yaw);
+    tf_ori.setRPY(0.0, 0.0, yaw+d_Y);
     
     g.grasp_pose.pose.orientation.x = tf_ori.getX();
     g.grasp_pose.pose.orientation.y = tf_ori.getY();
@@ -213,11 +213,17 @@ void ArmInterface::generic_done_callback(const CallbackBool f, const GoalState &
 bool ArmInterface::pickup_block(const geometry_msgs::Pose &pose,  const std::string &object){
     bool success = false;
     boost::mt19937 prg;
-    boost::normal_distribution<double> nd(0.0, 0.2);
+    boost::normal_distribution<double> nd(0, 0.02);
     boost::variate_generator<boost::mt19937&, boost::normal_distribution<double> > gen(prg, nd);
 
-    while(!success){
-        moveit_msgs::PickupGoal *goal = build_pickup_goal(pose, object, gen(), gen());
+    for(int i=0; i<25 && !success && ros::ok(); i++){
+        double d_x, d_y, d_z, d_Y;
+        d_x = gen();
+        d_y = gen();
+        d_z = gen();
+        d_Y = gen();
+        ROS_INFO_STREAM(i << " : " << d_x << " " << d_y << " " << d_z << " " << d_Y << std::endl);
+        moveit_msgs::PickupGoal *goal = build_pickup_goal(pose, object, d_x, d_y, d_z, d_Y);
         _puc->sendGoalAndWait(*goal);
         delete goal;
         success = _puc->getState() ==  GoalState::SUCCEEDED;
